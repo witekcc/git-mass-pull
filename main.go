@@ -7,12 +7,12 @@ import (
     //"log"
     //"io/ioutil"
     "net/http"
+    "os"
     //"net/url"
     "bytes"
+    "gopkg.in/libgit2/git2go.v22"
+    "log"
 )
-import "gopkg.in/libgit2/git2go.v22"
-import "os"
-import "log"
 
 type SessionData struct {
         Username    string `json:"username"`
@@ -161,17 +161,17 @@ func main() {
 
 
     repoSiteCode := flag.String("registryType","gitlab", "possible values: gitlab (github in the future)")
-    destinationPath := flag.String("d", "~/tmp_git", "clone to this location")
+    destinationPath := flag.String("d", "/home/witek/tmp_git", "clone to this location")
     username := flag.String("u", "", "")
     password := flag.String("p", "", "")
+    token := os.Getenv("GITLAB_TOKEN")
 
     flag.Parse()
 
-    fmt.Println("Hello")
     fmt.Printf("repoSiteCode:%s destinationPath:%s", *repoSiteCode, *destinationPath)
     
     session := getSession(*username, *password)
-    fmt.Println("Token: %+v \n", session)
+    session.Token = token
 
     projects := getProjects(session.Token)
     fmt.Println("Projects: ", projects)
@@ -194,26 +194,57 @@ func main() {
     //_, err := git.Clone(projects[0].RepoSSH, projectDestinationPath, cloneOptions)
 
 
-    //project := getProject(session.Token, 10)
-    //fmt.Println("\n\n\n\nProject10: ", project)
+    project := getProject(session.Token, 10)
+    fmt.Println("\n\n\n\nProject10: ", project)
 
-    //project = getProject(session.Token, 11)
-    //fmt.Println("\n\n\n\nProject11: ", project)
+    project = getProject(session.Token, 11)
+    fmt.Println("\n\n\n\nProject11: ", project)
 
+
+
+    //get projects one id at a time (in sequence)
+    projectIds := make([]int, 200, 200)
+    for i := 0; i < 200; i++ {
+        projectIds[i] = i + 1
+    }
+    //TODO: remove
+    //projectIds = projectIds[:0]//clear
+    //projectIds = append(projectIds, 102)
+
+    maxNonExistentProject := 50;
+    nonExistentProjectCount := 0;
+    projects = projects[:0]//clear
+    for _, id := range projectIds {
+        if(nonExistentProjectCount >= maxNonExistentProject){
+            break
+        }
+
+        project = getProject(session.Token, id)
+        if(project.ID > 0){
+            nonExistentProjectCount = 0
+            projects = append(projects, project)
+        }else{
+            nonExistentProjectCount++
+        }
+    }
+    fmt.Println("\n\n\n\nProjects: ", projects)
 
     //TODO: remove
     //clone
-            //fmt.Println("clone")
-            //_, err := git.Clone(project.RepoSSH, projectDestinationPath, cloneOptions)    
-            //if err != nil {
-            //    panic(err)
-            //}
+            /*
+            projectDestinationPath := fmt.Sprintf("%s/%s/%s", *destinationPath, project.Namespace.Path, project.Path)
+            fmt.Println("clone")
+            _, err := git.Clone(project.RepoSSH, projectDestinationPath, cloneOptions)    
+            if err != nil {
+                panic(err)
+            }
+            */
     //return
 
 
     for idx, project := range projects {
         //TODO: remove
-        fmt.Println("index: ", idx)
+        fmt.Printf("index:%d id:%d \n", idx, project.ID)
         //if(idx == 3){
         //    break;
         //}
@@ -268,5 +299,6 @@ func main() {
             //err = repo.Merge(mergeHeads, nil, nil)
             //repo.StateCleanup()
         }
+        fmt.Println("done")
     }
 }
